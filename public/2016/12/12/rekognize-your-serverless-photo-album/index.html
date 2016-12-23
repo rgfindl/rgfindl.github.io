@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Rekognize your serverless photo album | Randy Findley</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/app.css">
+  <!-- <link rel='stylesheet' href='http://fonts.useso.com/css?family=Source+Code+Pro'> -->
+  
+</head>
+
+<body>
+  <nav class="app-nav">
+  
+    
+      <a href="/.">home</a>
+    
+  
+    
+      <a href="/archives">archive</a>
+    
+  
+    
+      <a href="/atom.xml">rss</a>
+    
+  
+</nav>
+
+  <main class="post">
+  <article>
+  <h1 class="article-title">
+    <a href="/2016/12/12/rekognize-your-serverless-photo-album/">Rekognize your serverless photo album</a>
+  </h1>
+
+  <section class="article-meta">
+    <p class="article-date">December 12 2016</p>
+  </section>
+
+  <section class="article-entry">
+    <p>In this blog post I explain how I used AWS to build a serverless photo album with facial recognition.  This is not a step-by-step tutorial but rather an overview of the architecture, setup, and code.</p>
+<p>I started my online photo album, finpics.com, back in 1999.  I originally built finpics.com using php and mysql.<br>I also had a custom Java Applet to upload the images.  Pretty cool, right.</p>
+<p>Code: <a href="https://github.com/rgfindl/finpics" target="_blank" rel="external">https://github.com/rgfindl/finpics</a><br>Website: <a href="http://finpics.com" target="_blank" rel="external">http://finpics.com</a></p>
+<p><img src="/images/finpics-03.png" width="100%" style="border: solid 1px #eee; padding: 5px;"></p>
+<h3 id="Serverless"><a href="#Serverless" class="headerlink" title="Serverless"></a>Serverless</h3><p>Serverless architectures refer to applications that significantly depend on third-party services (knows as Backend as a Service or “BaaS”) or on custom code that’s run in ephemeral containers (Function as a Service or “FaaS”), the best known vendor host of which currently is AWS Lambda. <a href="http://martinfowler.com/articles/serverless.html" target="_blank" rel="external">http://martinfowler.com/articles/serverless.html</a></p>
+<h3 id="finpics-com"><a href="#finpics-com" class="headerlink" title="finpics.com"></a>finpics.com</h3><p>finpics.com gets almost no traffic.  Good thing too because there are a lot of embarrassing picture of myself, family, and friends. A serverless architectures is more cost effective because I’m not paying for a server to run that gets very little traffic. There is also very little maintenance with serverless apps.</p>
+<p>Once AWS Rekognition was released I knew that I wanted to use it to improve the searchability of finpics.com.  It is great to click on someones face and see more pictures of them.</p>
+<h3 id="AWS-resources"><a href="#AWS-resources" class="headerlink" title="AWS resources"></a>AWS resources</h3><table>
+<thead>
+<tr>
+<th>AWS Resource</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Route53</td>
+<td>DNS for finpics.com, points to static S3 bucket.</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>Hosts static website and images.</td>
+</tr>
+<tr>
+<td>Cognito</td>
+<td>Authorization. Lets the web client assume an IAM Role to make calls to AWS resources.</td>
+</tr>
+<tr>
+<td>DynamoDB</td>
+<td>Store image metadata.</td>
+</tr>
+<tr>
+<td>Lambda</td>
+<td>Serverless compute.</td>
+</tr>
+<tr>
+<td>Rekognition</td>
+<td>Facial recognition.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h2><h3 id="Web-Requests"><a href="#Web-Requests" class="headerlink" title="Web Requests"></a>Web Requests</h3><p><img src="/images/finpics-01.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"><br><strong>Static Web Site</strong><br>Fetch the html, js, css, and image assets directly from S3.</p>
+<p><strong>Get Unauth Creds</strong><br>Make a call to Cognito to get AWS credentials to use for all the calls to AWS.  The user assumes the unauthenticated IAM role that you define in Cognito.</p>
+<p><strong>Fetch Pictures</strong><br>The pictures are structured into picture sets.  A call is made to DynamoDB to get all the picture sets, and the featured pic for each set.  Then another call is made to DynamoDB to get the pictures for each set.</p>
+<p><strong>Search Faces</strong><br>Search Rekognition given a face id.  When you click on a persons face the results are pictures with that face sorted by highest probability.</p>
+<h3 id="Upload-Images"><a href="#Upload-Images" class="headerlink" title="Upload Images"></a>Upload Images</h3><p>Images are uploaded directly to S3.  There is an S3 event that triggers a Lambda function to perform the following tasks on each new image:</p>
+<ul>
+<li>Create a thumbnail</li>
+<li>Index the faces with Rekognition</li>
+<li>Store metadata in DynamoDB</li>
+</ul>
+<p>I have a <a href="https://github.com/rgfindl/finpics/blob/master/util/upload-pics.js" target="_blank" rel="external">script</a> that uploads a new picture set.<br><img src="/images/finpics-02.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"></p>
+<h2 id="DynamoDB-Tables"><a href="#DynamoDB-Tables" class="headerlink" title="DynamoDB Tables"></a>DynamoDB Tables</h2><h3 id="pics-table"><a href="#pics-table" class="headerlink" title="pics table"></a>pics table</h3><ul>
+<li>primaykey (Primary Key)</li>
+<li>sortKey (Sort Key)</li>
+<li>data (Rekognition IndexFaces response)</li>
+</ul>
+<p>The pics table stores all the picture sets, with featured image, which is used by the <a href="http://finpics.com" target="_blank" rel="external">index</a> page.</p>
+<p><strong>Picsets</strong></p>
+<ul>
+<li>primaykey: ‘/‘ (Primary Key)</li>
+<li>sortkey: ‘014_newportboston’ (Sort Key)</li>
+<li>pic: ‘Newport_pic_3.jpg’</li>
+</ul>
+<p>The pics table also stores all the pictures associated with a picture set, which is used by each <a href="http://finpics.com/#!/picset?path=280_pic_set_282" target="_blank" rel="external">picture set</a> page.<br><strong>Pics</strong></p>
+<ul>
+<li>primaykey: ‘014_newportboston’ (Primary Key)</li>
+<li>sortkey: ‘Newport_pic_3.jpg’ (Sort Key)</li>
+<li>… Rekognition IndexFaces response</li>
+</ul>
+<h3 id="pics-by-image-id-table"><a href="#pics-by-image-id-table" class="headerlink" title="pics_by_image_id table"></a>pics_by_image_id table</h3><ul>
+<li>image_id (Primary Key)</li>
+<li>data (Rekognition IndexFaces response)</li>
+<li>image_path</li>
+</ul>
+<p>The pics_by_image_id table stores the same facial recognition data as the pics table but is index by the AWS Rekognition image_id.  When we search Rekognition for facial matches we use the image_id’s in the response to fetch the picture information via this table.</p>
+<h2 id="Setup-amp-Code-Samples"><a href="#Setup-amp-Code-Samples" class="headerlink" title="Setup &amp; Code Samples"></a>Setup &amp; Code Samples</h2><h3 id="AWS-S3"><a href="#AWS-S3" class="headerlink" title="AWS S3"></a>AWS S3</h3><p>I’m using 3 buckets for finpics.com.</p>
+<ul>
+<li><strong>finpics.com</strong> which serves the static web content.</li>
+<li><strong>finpics-pics</strong> which serves the original (large) images.</li>
+<li><strong>finpics-thumbs</strong> which serves the thumbnails.</li>
+</ul>
+<p>I used different buckets for 2 reasons:</p>
+<ol>
+<li>AWS Rekognition fails when your bucket name has a period in it.  Awesome!</li>
+<li>For every new picture added to <strong>finpics-pics</strong> a Lambda function is triggered to create the thumbnail.  I didn’t want to create a circular loop.</li>
+</ol>
+<p>For each bucket I have <strong>Web Hosting</strong> enabled.</p>
+<p>I want all assets in these 3 buckets to be publicly available.  Under <strong>Permissions</strong> I have the following <strong>bucket policy</strong> for each.  Make sure to change the Resource name to match your bucket name.<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">&#123;</div><div class="line">	&quot;Version&quot;: &quot;2008-10-17&quot;,</div><div class="line">	&quot;Statement&quot;: [</div><div class="line">		&#123;</div><div class="line">			&quot;Sid&quot;: &quot;PublicReadForGetBucketObjects&quot;,</div><div class="line">			&quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">			&quot;Principal&quot;: &#123;</div><div class="line">				&quot;AWS&quot;: &quot;*&quot;</div><div class="line">			&#125;,</div><div class="line">			&quot;Action&quot;: &quot;s3:GetObject&quot;,</div><div class="line">			&quot;Resource&quot;: &quot;arn:aws:s3:::finpics-pics/*&quot;</div><div class="line">		&#125;</div><div class="line">	]</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>Now all my web assets are publicly available and served via S3.  Cheap, serverless, and performant.</p>
+<h3 id="AWS-Cognito"><a href="#AWS-Cognito" class="headerlink" title="AWS Cognito"></a>AWS Cognito</h3><p>Cognito allows the client-side JavaScript code permission to access AWS resources like DynamoDD &amp; Lambda functions.</p>
+<p>I created a Cognito <strong>Federated Identity</strong> called <code>finpics</code>.  When creating this identity I <strong>Enabled access to unauthenticated identities</strong>.  I also created new Unauthenticated and Authenticated AWS IAM Roles.  I’ll explain the permissions needed within Unauthenticated role later.  I’m currently not using the Authenticated role.</p>
+<p><img src="/images/finpics-04.png" style="border: solid 1px #eee; padding: 5px;"></p>
+<p>In the client-side JavaScript code I assume the Unathenticated role like this.  All subsequent calls to AWS will use this IAM role.<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">// Initialize the Amazon Cognito credentials provider</div><div class="line">AWS.config.region = &apos;us-east-1&apos;; // Region</div><div class="line">AWS.config.credentials = new AWS.CognitoIdentityCredentials(&#123;</div><div class="line">    IdentityPoolId: &apos;your-id&apos;</div><div class="line">&#125;);</div></pre></td></tr></table></figure></p>
+<h3 id="IAM-Roles"><a href="#IAM-Roles" class="headerlink" title="IAM Roles"></a>IAM Roles</h3><h4 id="Cognito-Unathenticated-Role"><a href="#Cognito-Unathenticated-Role" class="headerlink" title="Cognito Unathenticated Role"></a>Cognito Unathenticated Role</h4><p>Cognito will automatically create the Unathenticated role and setup the <strong>Trust Relationship</strong> with the Cognito federated identity.</p>
+<p>Here are the permissions:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div></pre></td><td class="code"><pre><div class="line">&#123;</div><div class="line">    &quot;Version&quot;: &quot;2012-10-17&quot;,</div><div class="line">    &quot;Statement&quot;: [</div><div class="line">        &#123;</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;mobileanalytics:PutEvents&quot;,</div><div class="line">                &quot;cognito-sync:*&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;*&quot;</div><div class="line">            ]</div><div class="line">        &#125;,</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1481636027000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;dynamodb:GetItem&quot;,</div><div class="line">                &quot;dynamodb:GetRecords&quot;,</div><div class="line">                &quot;dynamodb:Query&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:dynamodb:us-east-1:132093761664:table/pics&quot;</div><div class="line">            ]</div><div class="line">        &#125;,</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1481853728000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;lambda:InvokeFunction&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:lambda:us-east-1:132093761664:function:finpics-dev-search&quot;</div><div class="line">            ]</div><div class="line">        &#125;</div><div class="line">    ]</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<ol>
+<li>The first is permission is sync the user with Cognito (Cognito stuff).</li>
+<li>The second permission is to get picture data and metadata from DynamoDB.</li>
+<li>The third permission is to invoke our Lambda function.</li>
+</ol>
+<h4 id="Lambda-Role"><a href="#Lambda-Role" class="headerlink" title="Lambda Role"></a>Lambda Role</h4><p>The Lambda role has permissions to interact with the S3 buckets, DynamoDB tables, and the Rekognition collection (which I will create next).  Lambda also has permission to CloudWatch logs.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div></pre></td><td class="code"><pre><div class="line">&#123;</div><div class="line">    &quot;Version&quot;: &quot;2012-10-17&quot;,</div><div class="line">    &quot;Statement&quot;: [</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1481315917000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;s3:*&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:s3:::finpics-pics/*&quot;,</div><div class="line">                &quot;arn:aws:s3:::finpics-thumbs/*&quot;</div><div class="line">            ]</div><div class="line">        &#125;,</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1481636027000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;dynamodb:GetItem&quot;,</div><div class="line">                &quot;dynamodb:GetRecords&quot;,</div><div class="line">                &quot;dynamodb:Query&quot;,</div><div class="line">                &quot;dynamodb:BatchGetItem&quot;,</div><div class="line">                &quot;dynamodb:PutItem&quot;,</div><div class="line">                &quot;dynamodb:UpdateItem&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:dynamodb:us-east-1:132093761664:table/pics&quot;,</div><div class="line">                &quot;arn:aws:dynamodb:us-east-1:132093761664:table/pics_by_image_id&quot;</div><div class="line">            ]</div><div class="line">        &#125;,</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1481823471000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;rekognition:CompareFaces&quot;,</div><div class="line">                &quot;rekognition:ListFaces&quot;,</div><div class="line">                &quot;rekognition:SearchFaces&quot;,</div><div class="line">                &quot;rekognition:SearchFacesByImage&quot;,</div><div class="line">                &quot;rekognition:IndexFaces&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:rekognition:us-east-1:132093761664:collection/finpics/person/*&quot;</div><div class="line">            ]</div><div class="line">        &#125;,</div><div class="line">        &#123;</div><div class="line">            &quot;Sid&quot;: &quot;Stmt1482175623000&quot;,</div><div class="line">            &quot;Effect&quot;: &quot;Allow&quot;,</div><div class="line">            &quot;Action&quot;: [</div><div class="line">                &quot;logs:CreateLogGroup&quot;,</div><div class="line">                &quot;logs:CreateLogStream&quot;,</div><div class="line">                &quot;logs:PutLogEvents&quot;</div><div class="line">            ],</div><div class="line">            &quot;Resource&quot;: [</div><div class="line">                &quot;arn:aws:logs:us-east-1:132093761664:log-group:/aws/lambda/*:*:*&quot;</div><div class="line">            ]</div><div class="line">        &#125;</div><div class="line">    ]</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="Rekognition"><a href="#Rekognition" class="headerlink" title="Rekognition"></a>Rekognition</h3><p>Amazon Rekognition is a service that makes it easy to add image analysis to your applications. With Rekognition, you can detect objects, scenes, and faces in images. You can also search and compare faces. Rekognition’s API enables you to quickly add sophisticated deep learning-based visual search and image classification to your applications.</p>
+<p>To start indexing faces we first need to create a Rekognition collection.<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">var AWS = require(&apos;aws-sdk&apos;);</div><div class="line">var rekognition = new AWS.Rekognition(&#123;apiVersion: &apos;2016-06-27&apos;&#125;);</div><div class="line"></div><div class="line">var params = &#123;</div><div class="line">    CollectionId: &apos;finpics&apos; /* required */</div><div class="line">&#125;;</div><div class="line">rekognition.createCollection(params, function(err, data) &#123;</div><div class="line">    if (err) console.log(err, err.stack); // an error occurred</div><div class="line">    else     console.log(data);           // successful response</div><div class="line">&#125;);</div></pre></td></tr></table></figure></p>
+<p>When an image is added to S3 our Lambda function is triggered.  The Lambda function indexes the image which adds all the faces within that image to the Rekognition collection.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">var params = &#123;</div><div class="line">    CollectionId: &apos;finpics&apos;, /* required */</div><div class="line">    Image: &#123; /* required */</div><div class="line">        S3Object: &#123;</div><div class="line">            Bucket: &apos;finpics-pics&apos;,</div><div class="line">            Name: key</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">&#125;;</div><div class="line">rekognition.indexFaces(params, function(err, data) &#123;</div><div class="line">    if (err)  winston.error(err);</div><div class="line">    callback(err, data);</div><div class="line">&#125;);</div></pre></td></tr></table></figure>
+<p>When a user clicks on a face we search the Rekognition collection to find matches ordered by match probability.<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">var AWS = require(&apos;aws-sdk&apos;);</div><div class="line">var rekognition = new AWS.Rekognition(&#123;apiVersion: &apos;2016-06-27&apos;&#125;);</div><div class="line"></div><div class="line">var params = &#123;</div><div class="line">    CollectionId: &apos;finpics&apos;, /* required */</div><div class="line">    FaceId: faceid</div><div class="line">&#125;;</div><div class="line">rekognition.searchFaces(params, function (err, data) &#123;</div><div class="line">    if (err)  winston.error(err);</div><div class="line">    callback(err, data);</div><div class="line">&#125;);</div></pre></td></tr></table></figure></p>
+<h3 id="Lambda-Functions"><a href="#Lambda-Functions" class="headerlink" title="Lambda Functions"></a>Lambda Functions</h3><p>There are two Lambda functions:</p>
+<ol>
+<li>Search - search the Rekognition facial collection given a <code>faceid</code>.</li>
+<li>Process New Image - Triggered for each new image added to S3.<ul>
+<li>Creates a thumbnail</li>
+<li>Indexes the image within the Rekognition collection</li>
+<li>Adds image and metadata to DynamoDB</li>
+</ul>
+</li>
+</ol>
+<p><a href="https://github.com/rgfindl/finpics/blob/master/lambda/index.js" target="_blank" rel="external">Lambda functions</a></p>
+<h4 id="Search"><a href="#Search" class="headerlink" title="Search"></a>Search</h4><ol>
+<li>Search the Rekognition collection.</li>
+<li>Bulk fetch the images from DynamoDB.</li>
+<li>Normalize the DynamoDB results.<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div></pre></td><td class="code"><pre><div class="line">search: function(event, context, callback) &#123;</div><div class="line">    //</div><div class="line">    // Search AWS Rekognition given the faceid.</div><div class="line">    //</div><div class="line">    var params = &#123;</div><div class="line">      CollectionId: &apos;finpics&apos;, /* required */</div><div class="line">      FaceId: event.faceid</div><div class="line">    &#125;;</div><div class="line">    rekognition.searchFaces(params, function (err, data) &#123;</div><div class="line">      if (err) &#123;</div><div class="line">        var response = &#123;</div><div class="line">          statusCode: 500,</div><div class="line">          err: err,</div><div class="line">          params: params</div><div class="line">        &#125;;</div><div class="line">        callback(null, response);</div><div class="line">      &#125; else &#123;</div><div class="line">        //</div><div class="line">        // For each face match.  Fetch the image information from DynamoDB.</div><div class="line">        //</div><div class="line">        var keys = [];</div><div class="line">        var imageids = [];</div><div class="line">        _.forEach(data.FaceMatches, function (FaceMatch) &#123;</div><div class="line">          if (!_.includes(imageids, FaceMatch.Face.ImageId)) &#123;</div><div class="line">            keys.push(&#123;&quot;image_id&quot;: &#123;&quot;S&quot;: FaceMatch.Face.ImageId&#125;&#125;);</div><div class="line">            imageids.push(FaceMatch.Face.ImageId);</div><div class="line">          &#125;</div><div class="line">        &#125;);</div><div class="line">        var params = &#123;</div><div class="line">          &quot;RequestItems&quot;: &#123;</div><div class="line">            &quot;pics_by_image_id&quot;: &#123;</div><div class="line">              &quot;Keys&quot;: _.slice(keys, 0, 100)</div><div class="line">            &#125;</div><div class="line">          &#125;</div><div class="line">        &#125;;</div><div class="line">        dynamodb.batchGetItem(params, function (err, results) &#123;</div><div class="line">          if (err) &#123;</div><div class="line">            var response = &#123;</div><div class="line">              statusCode: 500,</div><div class="line">              err: err,</div><div class="line">              params: params</div><div class="line">            &#125;;</div><div class="line">            callback(null, response);</div><div class="line">          &#125; else &#123;</div><div class="line">            //</div><div class="line">            // Normalize the images we get back from the DynamoDB bulk get request.</div><div class="line">            //</div><div class="line">            var output = [];</div><div class="line">            var imageids = [];</div><div class="line">            _.forEach(data.FaceMatches, function (FaceMatch) &#123;</div><div class="line">              if (!_.includes(imageids, FaceMatch.Face.ImageId)) &#123;</div><div class="line">                var raw_item = _.find(results.Responses.pics_by_image_id, &#123;image_id: &#123;S: FaceMatch.Face.ImageId&#125;&#125;);</div><div class="line">                if (!_.isNil(raw_item)) &#123;</div><div class="line">                  var item = &#123;</div><div class="line">                    image_id: raw_item.image_id.S,</div><div class="line">                    image_path: raw_item.image_path.S</div><div class="line">                  &#125;;</div><div class="line">                  var faces = [];</div><div class="line">                  _.forEach(raw_item.data.M.FaceRecords.L, function (FaceRecord) &#123;</div><div class="line">                    faces.push(&#123;</div><div class="line">                      Face: &#123;</div><div class="line">                        Confidence: FaceRecord.M.Face.M.Confidence.N,</div><div class="line">                        ImageId: FaceRecord.M.Face.M.ImageId.S,</div><div class="line">                        BoundingBox: &#123;</div><div class="line">                          Top: FaceRecord.M.Face.M.BoundingBox.M.Top.N,</div><div class="line">                          Height: FaceRecord.M.Face.M.BoundingBox.M.Height.N,</div><div class="line">                          Width: FaceRecord.M.Face.M.BoundingBox.M.Width.N,</div><div class="line">                          Left: FaceRecord.M.Face.M.BoundingBox.M.Left.N</div><div class="line">                        &#125;,</div><div class="line">                        FaceId: FaceRecord.M.Face.M.FaceId.S,</div><div class="line">                      &#125;</div><div class="line">                    &#125;);</div><div class="line">                  &#125;);</div><div class="line">                  item.data = &#123;</div><div class="line">                    FaceRecords: faces</div><div class="line">                  &#125;;</div><div class="line">                  output.push(item);</div><div class="line">                &#125;</div><div class="line">                imageids.push(FaceMatch.Face.ImageId);</div><div class="line">              &#125;</div><div class="line">            &#125;);</div><div class="line">            var response = &#123;</div><div class="line">              statusCode: 200,</div><div class="line">              output: output</div><div class="line">            &#125;;</div><div class="line">            callback(null, response);</div><div class="line">          &#125;</div><div class="line">        &#125;);</div><div class="line">      &#125;</div><div class="line">    &#125;);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<h4 id="Process-New-Image"><a href="#Process-New-Image" class="headerlink" title="Process New Image"></a>Process New Image</h4><ol>
+<li>Download image from S3 (finpics-pics)</li>
+<li>Create thumbnail</li>
+<li>Upload thumbnail to S3 (finpics-thumbs)</li>
+<li>Add feature picture for album, if needed</li>
+<li>Index image using Rekognition</li>
+<li>Add image and metadata to DynamoDB</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div><div class="line">153</div><div class="line">154</div><div class="line">155</div><div class="line">156</div><div class="line">157</div><div class="line">158</div></pre></td><td class="code"><pre><div class="line">s3: function(event, context, callback) &#123;</div><div class="line"></div><div class="line">  winston.info(&quot;Reading options from event:\n&quot;, util.inspect(event, &#123;depth: 5&#125;));</div><div class="line">  var srcBucket = event.Records[0].s3.bucket.name;</div><div class="line">  // Object key may have spaces or unicode non-ASCII characters.</div><div class="line">  var srcKey    =</div><div class="line">      decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, &quot; &quot;));</div><div class="line">  var dstBucket = S3_THUMBS_BUCKET;</div><div class="line">  var dstKey    = srcKey;</div><div class="line"></div><div class="line">  // Sanity check: validate that source and destination are different buckets.</div><div class="line">  if (srcBucket == dstBucket) &#123;</div><div class="line">    callback(&quot;Source and destination buckets are the same.&quot;);</div><div class="line">    return;</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  // Infer the image type.</div><div class="line">  var typeMatch = srcKey.match(/\.([^.]*)$/);</div><div class="line">  if (!typeMatch) &#123;</div><div class="line">    callback(&quot;Could not determine the image type.&quot;);</div><div class="line">    return;</div><div class="line">  &#125;</div><div class="line">  var imageType = _.toLower(typeMatch[1]);</div><div class="line">  if (imageType != &quot;jpg&quot; &amp;&amp; imageType != &quot;jpeg&quot; &amp;&amp; imageType != &quot;png&quot;) &#123;</div><div class="line">    callback(&apos;Unsupported image type: $&#123;imageType&#125;&apos;);</div><div class="line">    return;</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  // Download the image from S3, transform, and upload to a different S3 bucket.</div><div class="line">  async.waterfall([</div><div class="line">        function download(next) &#123;</div><div class="line">          // Download the image from S3 into a buffer.</div><div class="line">          s3.getObject(&#123;</div><div class="line">                Bucket: srcBucket,</div><div class="line">                Key: srcKey</div><div class="line">              &#125;,</div><div class="line">              next);</div><div class="line">        &#125;,</div><div class="line">        function transform(response, next) &#123;</div><div class="line">          gm(response.Body).size(function(err, size) &#123;</div><div class="line">            // Infer the scaling factor to avoid stretching the image unnaturally.</div><div class="line">            var scalingFactor = Math.min(</div><div class="line">                MAX_WIDTH / size.width,</div><div class="line">                MAX_HEIGHT / size.height</div><div class="line">            );</div><div class="line">            var width  = scalingFactor * size.width;</div><div class="line">            var height = scalingFactor * size.height;</div><div class="line"></div><div class="line">            // Transform the image buffer in memory.</div><div class="line">            this.resize(width, height).autoOrient()</div><div class="line">                .toBuffer(imageType, function(err, buffer) &#123;</div><div class="line">                  if (err) &#123;</div><div class="line">                    next(err);</div><div class="line">                  &#125; else &#123;</div><div class="line">                    next(null, response.ContentType, buffer);</div><div class="line">                  &#125;</div><div class="line">                &#125;);</div><div class="line">          &#125;);</div><div class="line">        &#125;,</div><div class="line">        function upload(contentType, data, next) &#123;</div><div class="line">          // Stream the transformed image to a different S3 bucket.</div><div class="line">          s3.putObject(&#123;</div><div class="line">                Bucket: dstBucket,</div><div class="line">                Key: dstKey,</div><div class="line">                Body: data,</div><div class="line">                ContentType: contentType,</div><div class="line">                StorageClass: &apos;REDUCED_REDUNDANCY&apos;</div><div class="line">              &#125;,</div><div class="line">              next);</div><div class="line">        &#125;,</div><div class="line">        function add_feature_pic(response, next) &#123;</div><div class="line">          var image_parts = _.drop(_.split(srcKey, &apos;/&apos;));</div><div class="line">          var params = &#123;</div><div class="line">            TableName: &apos;pics&apos;,</div><div class="line">            Key: &#123;</div><div class="line">              primarykey: &apos;/&apos;,</div><div class="line">              sortkey: _.head(image_parts)</div><div class="line">            &#125;,</div><div class="line">            UpdateExpression: &quot;set pic = :pic&quot;,</div><div class="line">            ConditionExpression: &quot;attribute_not_exists(pic)&quot;,</div><div class="line">            ExpressionAttributeValues:&#123;</div><div class="line">              &apos;:pic&apos;: _.last(image_parts)</div><div class="line">            &#125;</div><div class="line">          &#125;;</div><div class="line">          winston.info(JSON.stringify(params));</div><div class="line">          docClient.update(params, function(err, results) &#123;</div><div class="line">            if (err &amp;&amp; _.isEqual(err.code, &apos;ConditionalCheckFailedException&apos;)) next(null, null);</div><div class="line">            else next(err, results);</div><div class="line">          &#125;);</div><div class="line">        &#125;,</div><div class="line">        function rekognize(response, next) &#123;</div><div class="line">          var params = &#123;</div><div class="line">            CollectionId: COLLECTION_ID, /* required */</div><div class="line">            Image: &#123; /* required */</div><div class="line">              S3Object: &#123;</div><div class="line">                Bucket: srcBucket,</div><div class="line">                Name: srcKey</div><div class="line">              &#125;</div><div class="line">            &#125;</div><div class="line">          &#125;;</div><div class="line">          winston.info(&apos;Index faces&apos;);</div><div class="line">          winston.info(JSON.stringify(params));</div><div class="line">          rekognition.indexFaces(params, next);</div><div class="line">        &#125;,</div><div class="line">        function add_pics(data, next) &#123;</div><div class="line">          var image_parts = _.drop(_.split(srcKey, &apos;/&apos;));</div><div class="line">          var item = &#123;</div><div class="line">            primarykey: _.head(image_parts),</div><div class="line">            sortkey: _.nth(image_parts, 1),</div><div class="line">            data: data</div><div class="line">          &#125;;</div><div class="line">          var params = &#123;</div><div class="line">            TableName: &apos;pics&apos;,</div><div class="line">            Item: item</div><div class="line">          &#125;;</div><div class="line">          winston.info(&apos;Put DynamoDB&apos;);</div><div class="line">          winston.info(JSON.stringify(params));</div><div class="line">          docClient.put(params, function(err, respose) &#123;</div><div class="line">            if (err)  winston.error(err);</div><div class="line">            next(err, data);</div><div class="line">          &#125;);</div><div class="line">        &#125;,</div><div class="line">        function add_pics_by_image_id(data, next) &#123;</div><div class="line">          if (!_.isNil(data) &amp;&amp; !_.isNil(data.FaceRecords) &amp;&amp; !_.isEmpty(data.FaceRecords) &amp;&amp;</div><div class="line">              !_.isNil(data.FaceRecords[0].Face) &amp;&amp; !_.isNil(data.FaceRecords[0].Face.ImageId)) &#123;</div><div class="line">            var image_parts = _.drop(_.split(srcKey, &apos;/&apos;));</div><div class="line">            var item = &#123;</div><div class="line">              image_id: data.FaceRecords[0].Face.ImageId,</div><div class="line">              data: data,</div><div class="line">              image_path: _.join(image_parts, &apos;/&apos;)</div><div class="line">            &#125;;</div><div class="line">            var params = &#123;</div><div class="line">              TableName: &apos;pics_by_image_id&apos;,</div><div class="line">              Item: item</div><div class="line">            &#125;;</div><div class="line">            winston.info(&apos;Put DynamoDB&apos;);</div><div class="line">            winston.info(JSON.stringify(params));</div><div class="line">            docClient.put(params, next);</div><div class="line">          &#125; else next(null, null);</div><div class="line">        &#125;</div><div class="line">      ], function (err) &#123;</div><div class="line">        if (err) &#123;</div><div class="line">          winston.error(</div><div class="line">              &apos;Unable to resize &apos; + srcBucket + &apos;/&apos; + srcKey +</div><div class="line">              &apos; and upload to &apos; + dstBucket + &apos;/&apos; + dstKey +</div><div class="line">              &apos; due to an error: &apos; + err</div><div class="line">          );</div><div class="line">        &#125; else &#123;</div><div class="line">          winston.info(</div><div class="line">              &apos;Successfully resized &apos; + srcBucket + &apos;/&apos; + srcKey +</div><div class="line">              &apos; and uploaded to &apos; + dstBucket + &apos;/&apos; + dstKey</div><div class="line">          );</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        callback(null, &quot;message&quot;);</div><div class="line">      &#125;</div><div class="line">  );</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>Thanks for reading my blog post.  Please let me know if you have any questions.</p>
+<p>Here is the <a href="https://github.com/rgfindl/finpics" target="_blank" rel="external">source code</a>.<br>Here is the <a href="http://finpics.com" target="_blank" rel="external">demo (finpics.com)</a>.</p>
+<p>There are a bunch of untilities <a href="https://github.com/rgfindl/finpics/blob/master/util" target="_blank" rel="external">here</a>.  I had a lot of images already that I had to process using <a href="https://github.com/rgfindl/finpics/blob/master/util/process-existing-images.js" target="_blank" rel="external">this script</a>.</p>
+
+  </section>
+</article>
+
+  <div class="sharing grid">
+  <section class="profile grid-item grid">
+    <img class="avatar" src="https://media.licdn.com/mpr/mpr/shrinknp_400_400/p/3/005/062/05d/36bc6ef.jpg" alt="avatar" />
+    <div class="grid-item">
+      <p class="title"> Randy Findley </p>
+      <p class="subtitle"> An Engineering Blog </p>
+    <div>
+  </section>
+
+  <section class="share-btns">
+    <!-- <p> share it if you like it~ </p> -->
+    <a
+  class="twitter-share-button"
+  data-size="large"
+  data-via="rgfindl"
+  href="https://twitter.com/intent/tweet?text=In this blog post I "
+>
+
+</a>
+
+<script>
+  window.twttr = (function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0],
+    t = window.twttr || {};
+  if (d.getElementById(id)) return t;
+  js = d.createElement(s);
+  js.id = id;
+  js.src = "https://platform.twitter.com/widgets.js";
+  js.async = true;
+  fjs.parentNode.insertBefore(js, fjs);
+
+  t._e = [];
+  t.ready = function(f) {
+    t._e.push(f);
+  };
+
+  return t;
+}(document, "script", "twitter-wjs"));
+</script>
+
+  </section>
+</div>
+
+
+  
+    
+<section class="article-comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+<script>
+  var disqus_shortname = 'rgfindl-github-io';
+  
+  var disqus_url = 'https://rgfindl.github.io/2016/12/12/rekognize-your-serverless-photo-album/';
+  
+  (function(){
+    var dsq = document.createElement('script');
+    dsq.type = 'text/javascript';
+    dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+</script>
+
+
+  
+</main>
+
+</body>
+</html>
