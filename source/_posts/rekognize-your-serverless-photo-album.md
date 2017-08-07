@@ -12,7 +12,9 @@ I also had a custom Java Applet to upload the images.  Pretty cool, right.
 Code: [https://github.com/rgfindl/finpics](https://github.com/rgfindl/finpics)
 Website: [http://finpics.com](http://finpics.com)
 
+{% raw %}
 <img src="/images/finpics-03.png" width="100%" style="border: solid 1px #eee; padding: 5px;"/>
+{% endraw %}
 
 ### Serverless
 
@@ -37,7 +39,7 @@ Once AWS Rekognition was released I knew that I wanted to use it to improve the 
 
 ## Architecture
 ### Web Requests
-<img src="/images/finpics-01.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"/>
+{% raw %}<img src="/images/finpics-01.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"/>{% endraw %}
 **Static Web Site**
 Fetch the html, js, css, and image assets directly from S3.
 
@@ -57,7 +59,7 @@ Images are uploaded directly to S3.  There is an S3 event that triggers a Lambda
 * Store metadata in DynamoDB
 
 I have a [script](https://github.com/rgfindl/finpics/blob/master/util/upload-pics.js) that uploads a new picture set.
-<img src="/images/finpics-02.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"/>
+{% raw %}<img src="/images/finpics-02.jpg" width="100%" style="border: solid 1px #eee; padding: 5px;"/>{% endraw %}
 
 ## DynamoDB Tables
 ### pics table
@@ -123,7 +125,7 @@ Cognito allows the client-side JavaScript code permission to access AWS resource
 
 I created a Cognito **Federated Identity** called `finpics`.  When creating this identity I **Enabled access to unauthenticated identities**.  I also created new Unauthenticated and Authenticated AWS IAM Roles.  I'll explain the permissions needed within Unauthenticated role later.  I'm currently not using the Authenticated role.
 
-<img src="/images/finpics-04.png" style="border: solid 1px #eee; padding: 5px;"/>
+{% raw %}<img src="/images/finpics-04.png" style="border: solid 1px #eee; padding: 5px;"/>{% endraw %}
 
 In the client-side JavaScript code I assume the Unathenticated role like this.  All subsequent calls to AWS will use this IAM role.
 ```

@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://rgfindl.github.io/"/>
-  <updated>2017-08-07T20:16:25.000Z</updated>
+  <updated>2017-08-07T20:28:09.000Z</updated>
   <id>https://rgfindl.github.io/</id>
   
   <author>
@@ -20,11 +20,11 @@
     <link href="https://rgfindl.github.io/2017/08/07/static-website-cloudformation-template/"/>
     <id>https://rgfindl.github.io/2017/08/07/static-website-cloudformation-template/</id>
     <published>2017-08-07T13:02:12.000Z</published>
-    <updated>2017-08-07T20:16:25.000Z</updated>
+    <updated>2017-08-07T20:28:09.000Z</updated>
     
     <summary type="html">
     
-      &lt;p&gt;The template: &amp;lt;a href=&amp;quot;https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json&amp;quot;&amp;gt;static.website.cloudfor
+      &lt;p&gt;The template: &lt;a href=&quot;https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;static.w
     
     </summary>
     
@@ -36,7 +36,7 @@
     <link href="https://rgfindl.github.io/2016/12/12/rekognize-your-serverless-photo-album/"/>
     <id>https://rgfindl.github.io/2016/12/12/rekognize-your-serverless-photo-album/</id>
     <published>2016-12-12T18:57:50.000Z</published>
-    <updated>2016-12-23T14:21:47.000Z</updated>
+    <updated>2017-08-07T20:26:59.000Z</updated>
     
     <summary type="html">
     
