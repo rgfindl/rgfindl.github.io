@@ -40,7 +40,9 @@
     <p>In this blog post I explain how I used AWS to build a serverless photo album with facial recognition.  This is not a step-by-step tutorial but rather an overview of the architecture, setup, and code.</p>
 <p>I started my online photo album, finpics.com, back in 1999.  I originally built finpics.com using php and mysql.<br>I also had a custom Java Applet to upload the images.  Pretty cool, right.</p>
 <p>Code: <a href="https://github.com/rgfindl/finpics" target="_blank" rel="external">https://github.com/rgfindl/finpics</a><br>Website: <a href="http://finpics.com" target="_blank" rel="external">http://finpics.com</a></p>
-<p><img src="/images/finpics-03.png" width="100%" style="border: solid 1px #eee; padding: 5px;"></p>
+
+<img src="/images/finpics-03.png" width="100%" style="border: solid 1px #eee; padding: 5px;">
+
 <h3 id="Serverless"><a href="#Serverless" class="headerlink" title="Serverless"></a>Serverless</h3><p>Serverless architectures refer to applications that significantly depend on third-party services (knows as Backend as a Service or “BaaS”) or on custom code that’s run in ephemeral containers (Function as a Service or “FaaS”), the best known vendor host of which currently is AWS Lambda. <a href="http://martinfowler.com/articles/serverless.html" target="_blank" rel="external">http://martinfowler.com/articles/serverless.html</a></p>
 <h3 id="finpics-com"><a href="#finpics-com" class="headerlink" title="finpics.com"></a>finpics.com</h3><p>finpics.com gets almost no traffic.  Good thing too because there are a lot of embarrassing picture of myself, family, and friends. A serverless architectures is more cost effective because I’m not paying for a server to run that gets very little traffic. There is also very little maintenance with serverless apps.</p>
 <p>Once AWS Rekognition was released I knew that I wanted to use it to improve the searchability of finpics.com.  It is great to click on someones face and see more pictures of them.</p>
