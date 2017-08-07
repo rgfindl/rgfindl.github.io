@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://rgfindl.github.io/"/>
-  <updated>2016-12-23T14:21:47.000Z</updated>
+  <updated>2017-08-07T20:16:25.000Z</updated>
   <id>https://rgfindl.github.io/</id>
   
   <author>
@@ -14,6 +14,22 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Static Website CloudFormation Template</title>
+    <link href="https://rgfindl.github.io/2017/08/07/static-website-cloudformation-template/"/>
+    <id>https://rgfindl.github.io/2017/08/07/static-website-cloudformation-template/</id>
+    <published>2017-08-07T13:02:12.000Z</published>
+    <updated>2017-08-07T20:16:25.000Z</updated>
+    
+    <summary type="html">
+    
+      &lt;p&gt;The template: &amp;lt;a href=&amp;quot;https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json&amp;quot;&amp;gt;static.website.cloudfor
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>Rekognize your serverless photo album</title>
