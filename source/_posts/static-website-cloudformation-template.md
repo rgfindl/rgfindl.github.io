@@ -6,7 +6,7 @@ tags:
 ---
 The template: {% raw %}<a href="https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json">static.website.cloudformation.json</a>{% endraw %}
 ### Click here to launch your static website on AWS
-{% raw %}<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=staticwebsite&templateURL=https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json">{% raw %}<img src="https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png"/></a>{% endraw %}
+{% raw %}<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=staticwebsite&templateURL=https://s3.amazonaws.com/thestackshack/static.website.cloudformation.json"><img src="https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png"/></a>{% endraw %}
 
 ### What is a static website and why are they cool?
 A static website is simply html, css, js,... files hosted by AWS S3.  They are cool because there are no servers for you to maintain and pay for.  You only pay for the storage of your files and the amount of traffic your site gets.  Security is greatly improved because your site has no servers or databases to hack into.
